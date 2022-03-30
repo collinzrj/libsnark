@@ -1,3 +1,5 @@
+Fork of libsnark for ZKMB development
+
 libsnark: a C++ library for zkSNARK proofs
 ================================================================================
 
