@@ -84,6 +84,8 @@ bool run_r1cs_gg_ppzksnark(const r1cs_example<libff::Fr<ppT> > &example,
 
     libff::print_header("R1CS GG-ppzkSNARK Prover");
     r1cs_gg_ppzksnark_proof<ppT> proof = r1cs_gg_ppzksnark_prover<ppT>(keypair.pk, example.primary_input, example.auxiliary_input);
+    std::ofstream ostrm("proof_binary", std::ios::binary);
+    ostrm << proof;
     printf("\n"); libff::print_indent(); libff::print_mem("after prover");
 
     if (test_serialization)
