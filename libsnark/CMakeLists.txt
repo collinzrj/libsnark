@@ -723,6 +723,50 @@ set_target_properties(prove_r1cs_gg_ppzksnark
     RUNTIME_OUTPUT_DIRECTORY "jsnark_interface/"
 )
 
+add_executable(
+  generate_r1cs_gg_ppzksnark
+
+  jsnark_interface/Util.hpp
+  jsnark_interface/Util.cpp
+  jsnark_interface/CircuitReader.hpp
+  jsnark_interface/CircuitReader.cpp
+  jsnark_interface/generate_r1cs_gg_ppzksnark.cpp
+)
+target_link_libraries(
+  generate_r1cs_gg_ppzksnark
+
+  snark
+)
+
+set_target_properties(generate_r1cs_gg_ppzksnark
+    PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY "jsnark_interface/"
+    LIBRARY_OUTPUT_DIRECTORY "jsnark_interface/"
+    RUNTIME_OUTPUT_DIRECTORY "jsnark_interface/"
+)
+
+add_executable(
+  verify_r1cs_gg_ppzksnark
+
+  jsnark_interface/Util.hpp
+  jsnark_interface/Util.cpp
+  jsnark_interface/CircuitReader.hpp
+  jsnark_interface/CircuitReader.cpp
+  jsnark_interface/verify_r1cs_gg_ppzksnark.cpp
+)
+target_link_libraries(
+  verify_r1cs_gg_ppzksnark
+
+  snark
+)
+
+set_target_properties(verify_r1cs_gg_ppzksnark
+    PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY "jsnark_interface/"
+    LIBRARY_OUTPUT_DIRECTORY "jsnark_interface/"
+    RUNTIME_OUTPUT_DIRECTORY "jsnark_interface/"
+)
+
 include(CTest)
 add_test(
   NAME common_routing_algorithms_test

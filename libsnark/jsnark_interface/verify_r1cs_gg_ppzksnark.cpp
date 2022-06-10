@@ -1,5 +1,5 @@
 /*
- * prove_r1cs_gg_ppzksnark.cpp
+ * verify_r1cs_gg_ppzksnark.cpp
  *
  *      Author: Collin Zhang
  */
@@ -37,13 +37,19 @@ int main(int argc, char **argv) {
 	const r1cs_auxiliary_input<FieldT> auxiliary_input(
 			full_assignment.begin() + cs.num_inputs(), full_assignment.end());
 
-	r1cs_example<FieldT> example(cs, primary_input, auxiliary_input);
-	r1cs_gg_ppzksnark_proving_key<Dpp> pk;
+    // read pvk and proof from file
+	r1cs_gg_ppzksnark_proof<Dpp> proof;
 	std::ifstream istrm(argv[3], std::ios::binary);
-	istrm >> pk;
-    r1cs_gg_ppzksnark_proof<Dpp> proof = r1cs_gg_ppzksnark_prover<Dpp>(pk, example.primary_input, example.auxiliary_input);
-    std::ofstream ostrm(argv[4], std::ios::binary);
-    ostrm << proof;
-	return 0;
+    istrm >> proof;
+	r1cs_gg_ppzksnark_processed_verification_key<Dpp> pvk;
+	std::ifstream istrm2(argv[4], std::ios::binary);
+	istrm2 >> pvk;
+
+	r1cs_example<FieldT> example(cs, primary_input, auxiliary_input);
+    const bool ans = r1cs_gg_ppzksnark_online_verifier_strong_IC(pvk, example.primary_input, proof);
+	printf("Ans is %d\n", ans);
+	return ans;
 }
+
+
 

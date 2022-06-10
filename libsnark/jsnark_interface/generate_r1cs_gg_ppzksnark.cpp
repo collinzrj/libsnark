@@ -1,5 +1,5 @@
 /*
- * prove_r1cs_gg_ppzksnark.cpp
+ * verify_r1cs_gg_ppzksnark.cpp
  *
  *      Author: Collin Zhang
  */
@@ -16,7 +16,6 @@
 typedef libsnark::default_r1cs_gg_ppzksnark_pp Dpp;
 
 int main(int argc, char **argv) {
-
 	libff::start_profiling();
 	gadgetlib2::initPublicParamsFromDefaultPp();
 	gadgetlib2::GadgetLibAdapter::resetVariableIndex();
@@ -38,12 +37,12 @@ int main(int argc, char **argv) {
 			full_assignment.begin() + cs.num_inputs(), full_assignment.end());
 
 	r1cs_example<FieldT> example(cs, primary_input, auxiliary_input);
-	r1cs_gg_ppzksnark_proving_key<Dpp> pk;
-	std::ifstream istrm(argv[3], std::ios::binary);
-	istrm >> pk;
-    r1cs_gg_ppzksnark_proof<Dpp> proof = r1cs_gg_ppzksnark_prover<Dpp>(pk, example.primary_input, example.auxiliary_input);
-    std::ofstream ostrm(argv[4], std::ios::binary);
-    ostrm << proof;
-	return 0;
+    r1cs_gg_ppzksnark_keypair<Dpp> keypair = r1cs_gg_ppzksnark_generator<Dpp>(example.constraint_system);
+    r1cs_gg_ppzksnark_processed_verification_key<Dpp> pvk = r1cs_gg_ppzksnark_verifier_process_vk<Dpp>(keypair.vk);
+	r1cs_gg_ppzksnark_proving_key<Dpp> pk = keypair.pk;
+ 
+    std::ofstream ostrm(argv[3], std::ios::binary);
+    ostrm << pvk;
+    std::ofstream ostrm2(argv[4], std::ios::binary);
+    ostrm2 << pk;
 }
-
