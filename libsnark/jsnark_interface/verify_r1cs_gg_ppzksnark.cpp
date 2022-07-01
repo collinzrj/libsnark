@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
 	ifstream inputfs(argv[1], ifstream::in);
 	string line;
 	char* inputStr;
-	for (int i = 0; i < 504; i++) {
+	for (int i = 0; i < atoi(argv[4]); i++) {
 		getline(inputfs, line);
 		Wire wireId;
 		inputStr = new char[line.size()];

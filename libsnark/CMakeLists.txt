@@ -723,6 +723,30 @@ set_target_properties(prove_r1cs_gg_ppzksnark
     RUNTIME_OUTPUT_DIRECTORY "jsnark_interface/"
 )
 
+add_library(
+  python_prove_r1cs_gg_ppzksnark
+  SHARED
+
+  jsnark_interface/Util.hpp
+  jsnark_interface/Util.cpp
+  jsnark_interface/CircuitReader.hpp
+  jsnark_interface/CircuitReader.cpp
+  jsnark_interface/python_prove_r1cs_gg_ppzksnark.cpp
+)
+target_link_libraries(
+  python_prove_r1cs_gg_ppzksnark
+
+  snark
+)
+
+set_target_properties(python_prove_r1cs_gg_ppzksnark
+    PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    ARCHIVE_OUTPUT_DIRECTORY "jsnark_interface/"
+    LIBRARY_OUTPUT_DIRECTORY "jsnark_interface/"
+    RUNTIME_OUTPUT_DIRECTORY "jsnark_interface/"
+)
+
 add_executable(
   generate_r1cs_gg_ppzksnark
 

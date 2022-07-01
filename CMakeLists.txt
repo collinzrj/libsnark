@@ -10,6 +10,8 @@ set(
   "Default curve: one of ALT_BN128, BN128, EDWARDS, MNT4, MNT6"
 )
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 option(
   DEBUG
   "Enable debugging mode"
