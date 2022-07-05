@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
 
     const bool ans = r1cs_gg_ppzksnark_online_verifier_strong_IC(pvk, my_primary_input, proof);
 	printf("Ans is %d\n", ans);
-    std::ofstream ostrm(argv[4], std::ios::binary);
+    std::ofstream ostrm(argv[5], std::ios::binary);
     ostrm << ans;
 	return ans;
 }

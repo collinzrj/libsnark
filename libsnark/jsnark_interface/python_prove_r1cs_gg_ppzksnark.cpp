@@ -22,26 +22,15 @@ extern "C"
 {
 
 	r1cs_gg_ppzksnark_proving_key<Dpp>* read_pk(const char* pk_path) {
-
-		ios_base::sync_with_stdio(false);
-
-		cout<< "begin read " << endl;
-
 		gadgetlib2::initPublicParamsFromDefaultPp();
 		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
-		std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 		std::ifstream istrm(pk_path, std::ios::binary);
 		r1cs_gg_ppzksnark_proving_key<Dpp>* pk = new r1cs_gg_ppzksnark_proving_key<Dpp>();
 		istrm >> *pk;
-		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-
-		std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[ns]" << endl;
-
-		cout<< "end read" <<endl;
 		return pk;
 	}
 
-	void generate_proof(char* arith_path, char* in_path, r1cs_gg_ppzksnark_proving_key<Dpp>* pk, char* proof_path)
+	char* generate_proof(char* arith_path, char* in_path, r1cs_gg_ppzksnark_proving_key<Dpp>* pk)
 	{
 		libff::start_profiling();
 		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
@@ -62,12 +51,47 @@ extern "C"
 
 		r1cs_example<FieldT> example(cs, primary_input, auxiliary_input);
 		r1cs_gg_ppzksnark_proof<Dpp> proof = r1cs_gg_ppzksnark_prover<Dpp>(*pk, example.primary_input, example.auxiliary_input);
-		std::ofstream ostrm(proof_path, std::ios::binary);
-		ostrm << proof;
+		std::stringstream proofstream;
+		proofstream << proof;
+		// TODO: fix hardcode here
+		char* result = new char[134];
+		char c;
+		int i = 0;
+		for (int i = 0; i < 134; i++) {
+			result[i] = proofstream.get();
+		}
+		return result;
 	}
 
-	void test_prove() {
-		// r1cs_gg_ppzksnark_proving_key<Dpp>* pk = read_pk();;
-		// generate_proof(pk);
+	r1cs_gg_ppzksnark_processed_verification_key<Dpp>* read_pvk(const char* pvk_path) {
+		gadgetlib2::initPublicParamsFromDefaultPp();
+		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
+		std::ifstream istrm2(pvk_path, std::ios::binary);
+		r1cs_gg_ppzksnark_processed_verification_key<Dpp>* pvk = new r1cs_gg_ppzksnark_processed_verification_key<Dpp>();
+		istrm2 >> *pvk;
+		return pvk;
+	}
+
+	bool verify_proof(char* public_inputs, char* proof_binary, int proof_len, r1cs_gg_ppzksnark_processed_verification_key<Dpp>* pvk) {
+		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
+		r1cs_gg_ppzksnark_proof<Dpp> proof;
+		std::stringstream proofstream;
+		for (int i = 0; i < proof_len; i++) {
+			proofstream << proof_binary[i];
+		}
+		proofstream >> proof;
+		vector<FieldT> my_primary_input;
+		std::istringstream inputstream(public_inputs, ifstream::in);
+		string line;
+		char* inputStr;
+		while (getline(inputstream, line)) {
+			Wire wireId;
+			inputStr = new char[line.size()];
+			sscanf(line.c_str(), "%u %s", &wireId, inputStr);
+			my_primary_input.push_back(readFieldElementFromHex(inputStr));
+		}
+
+		const bool ans = r1cs_gg_ppzksnark_online_verifier_strong_IC(*pvk, my_primary_input, proof);
+		return ans;
 	}
 }
