@@ -13,7 +13,7 @@ typedef libff::Fr<libff::default_ec_pp> FieldT;
 
 
 void readIds(char* str, std::vector<unsigned int>& vec);
-FieldT readFieldElementFromHex(char* str);
+FieldT readFieldElementFromHex(const char* str);
 
 
 #endif

@@ -5,6 +5,7 @@
  */
 
 #include "CircuitReader.hpp"
+#include <chrono>
 
 CircuitReader::CircuitReader(char* arithFilepath, char* inputsFilepath,
 		ProtoboardPtr pb) {
@@ -13,9 +14,12 @@ CircuitReader::CircuitReader(char* arithFilepath, char* inputsFilepath,
 	numWires = 0;
 	numInputs = numNizkInputs = numOutputs = 0;
 
-	parseAndEval(arithFilepath, inputsFilepath);
+	parseAndEval(arithFilepath);
 	constructCircuit(arithFilepath);
+	readWireValues(inputsFilepath);
 	mapValuesToProtoboard();
+
+	cout << "variableMap " << variableMap.size() << endl;
 
 	wireLinearCombinations.clear();
 	wireValues.clear();
@@ -25,20 +29,21 @@ CircuitReader::CircuitReader(char* arithFilepath, char* inputsFilepath,
 	zeroPwires.clear();
 }
 
-void CircuitReader::parseAndEval(char* arithFilepath, char* inputsFilepath) {
+void CircuitReader::parseAndEval(char* arithFilepath) {
 
 	libff::enter_block("Parsing and Evaluating the circuit");
 
 	ifstream arithfs(arithFilepath, ifstream::in);
-	ifstream inputfs(inputsFilepath, ifstream::in);
-	string line;
+	stringstream arithss;
+	arithss << arithfs.rdbuf();
 
-	if (!arithfs.good()) {
+	if (!arithss.good()) {
 		printf("Unable to open circuit file %s \n", arithFilepath);
 		exit(-1);
 	}
+	string line;
 
-	getline(arithfs, line);
+	getline(arithss, line);
 	int ret = sscanf(line.c_str(), "total %u", &numWires);
 
 	if (ret != 1) {
@@ -49,28 +54,6 @@ void CircuitReader::parseAndEval(char* arithFilepath, char* inputsFilepath) {
 	wireValues.resize(numWires);
 	wireUseCounters.resize(numWires);
 	wireLinearCombinations.resize(numWires);
-
-	if (!inputfs.good()) {
-		printf("Unable to open input file %s \n", inputsFilepath);
-		exit(-1);
-	} else {
-		char* inputStr;
-		while (getline(inputfs, line)) {
-			if (line.length() == 0) {
-				continue;
-			}
-			Wire wireId;
-			inputStr = new char[line.size()];
-			if (2 == sscanf(line.c_str(), "%u %s", &wireId, inputStr)) {
-				wireValues[wireId] = readFieldElementFromHex(inputStr);
-			} else {
-				printf("Error in Input\n");
-				exit(-1);
-			}
-			delete[] inputStr;
-		}
-		inputfs.close();
-	}
 
 	if (wireValues[0] != FieldT::one()) {
 		printf(">> Warning: when using jsnark circuit generator, the first input wire (#0) must have the value of 1.\n");
@@ -94,7 +77,18 @@ void CircuitReader::parseAndEval(char* arithFilepath, char* inputsFilepath) {
 
 	// Parse the circuit: few lines were imported from Pinocchio's code.
 
-	while (getline(arithfs, line)) {
+	long long total_time = 0;
+	long long total_time_2 = 0;
+	libff::enter_block("Start getline");
+	vector<string> lines;
+	while(getline(arithss, line)) {
+		lines.push_back(line);
+	}
+	libff::leave_block("Start getline");
+	libff::enter_block("Start getline 2");
+	auto my_start = std::chrono::high_resolution_clock::now();
+	for (auto line: lines) {
+		auto start = std::chrono::high_resolution_clock::now();
 		if (line.length() == 0) {
 			continue;
 		}
@@ -166,41 +160,43 @@ void CircuitReader::parseAndEval(char* arithFilepath, char* inputsFilepath) {
 			// TODO 3: change circuit format to make common constants defined once			
 	
 			//begin = libff::get_nsec_time();
-			if (opcode == ADD_OPCODE) {
-				FieldT sum;
-				for (auto &v : inValues)
-					sum += v;
-				wireValues[outWires[0]] = sum;
-			} else if (opcode == MUL_OPCODE) {
-				wireValues[outWires[0]] = inValues[0] * inValues[1];
-			} else if (opcode == XOR_OPCODE) {
-				wireValues[outWires[0]] =
-						(inValues[0] == inValues[1]) ? zeroElement : oneElement;
-			} else if (opcode == OR_OPCODE) {
-				wireValues[outWires[0]] =
-						(inValues[0] == zeroElement
-								&& inValues[1] == zeroElement) ?
-								zeroElement : oneElement;
-			} else if (opcode == NONZEROCHECK_OPCODE) {
-				wireValues[outWires[1]] =
-						(inValues[0] == zeroElement) ? zeroElement : oneElement;
-			} else if (opcode == PACK_OPCODE) {
-				FieldT sum, coeff;
-				FieldT two = oneElement;
-				for (auto &v : inValues) {
-					sum += two * v;
-					two += two;
-				}
-				wireValues[outWires[0]] = sum;
-			} else if (opcode == SPLIT_OPCODE) {
-				int size = outWires.size();
-				FElem inVal = inValues[0];
-				for (int i = 0; i < size; i++) {
-					wireValues[outWires[i]] = inVal.getBit(i, R1P);
-				}
-			} else if (opcode == MULCONST_OPCODE) {
-				wireValues[outWires[0]] = constant * inValues[0];
-			}
+
+			// if (opcode == ADD_OPCODE) {
+			// 	FieldT sum;
+			// 	for (auto &v : inValues)
+			// 		sum += v;
+			// 	wireValues[outWires[0]] = sum;
+			// } else if (opcode == MUL_OPCODE) {
+			// 	wireValues[outWires[0]] = inValues[0] * inValues[1];
+			// } else if (opcode == XOR_OPCODE) {
+			// 	wireValues[outWires[0]] =
+			// 			(inValues[0] == inValues[1]) ? zeroElement : oneElement;
+			// } else if (opcode == OR_OPCODE) {
+			// 	wireValues[outWires[0]] =
+			// 			(inValues[0] == zeroElement
+			// 					&& inValues[1] == zeroElement) ?
+			// 					zeroElement : oneElement;
+			// } else if (opcode == NONZEROCHECK_OPCODE) {
+			// 	wireValues[outWires[1]] =
+			// 			(inValues[0] == zeroElement) ? zeroElement : oneElement;
+			// } else if (opcode == PACK_OPCODE) {
+			// 	FieldT sum, coeff;
+			// 	FieldT two = oneElement;
+			// 	for (auto &v : inValues) {
+			// 		sum += two * v;
+			// 		two += two;
+			// 	}
+			// 	wireValues[outWires[0]] = sum;
+			// } else if (opcode == SPLIT_OPCODE) {
+			// 	int size = outWires.size();
+			// 	FElem inVal = inValues[0];
+			// 	for (int i = 0; i < size; i++) {
+			// 		wireValues[outWires[i]] = inVal.getBit(i, R1P);
+			// 	}
+			// } else if (opcode == MULCONST_OPCODE) {
+			// 	wireValues[outWires[0]] = constant * inValues[0];
+			// }
+
 			//end =  libff::get_nsec_time();
 			//evalTime += (end - begin);
 		} else {
@@ -209,7 +205,16 @@ void CircuitReader::parseAndEval(char* arithFilepath, char* inputsFilepath) {
 		}
 		delete[] inputStr;
 		delete[] outputStr;
+		auto end = std::chrono::high_resolution_clock::now();
+		long long one_line_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
+		total_time += one_line_time;
+		total_time_2 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-my_start).count();
+		my_start = end;
 	}
+	auto my_end = std::chrono::high_resolution_clock::now();
+	libff::leave_block("Start getline 2");
+	cout << "total time " << total_time << endl;
+	cout << "total time my " << total_time_2 << endl;
 	arithfs.close();
 
 	// printf("\t Evaluation Done in %lf seconds \n", (double) (evalTime) * 1e-9);
@@ -218,7 +223,7 @@ void CircuitReader::parseAndEval(char* arithFilepath, char* inputsFilepath) {
 
 void CircuitReader::constructCircuit(char* arithFilepath) {
 
-
+	libff::enter_block("Construct Circuit");
 
 	cout << "Translating Constraints ... " << endl;
 
@@ -334,11 +339,44 @@ void CircuitReader::constructCircuit(char* arithFilepath) {
 	unsigned long diff = usage2.vsize - usage1.vsize;
 	printf("\tMemory usage for constraint translation: %lu MB\n", diff >> 20);
         #endif
+
+	libff::leave_block("Construct Circuit");
         
 }
 
-void CircuitReader::mapValuesToProtoboard() {
+void CircuitReader::readWireValues(char* inputsFilepath) {
+	libff::enter_block("Reading Wires");
+	ifstream inputfs(inputsFilepath, ifstream::in);
+	string line;
+	if (!inputfs.good()) {
+		printf("Unable to open input file %s \n", inputsFilepath);
+		exit(-1);
+	} else {
+		char* inputStr;
+		Wire wireId = 0;
+		while (getline(inputfs, line)) {
+			if (line.length() == 0) {
+				continue;
+			}
+			wireValues[wireId] = readFieldElementFromHex(line.c_str());
+			wireId++;
+			// inputStr = new char[line.size()];
+			// if (1 == sscanf(line.c_str(), "%s", inputStr)) {
+			// 	wireValues[wireId] = readFieldElementFromHex(inputStr);
+			// 	wireId++;
+			// } else {
+			// 	printf("Error in Input\n");
+			// 	exit(-1);
+			// }
+			// delete[] inputStr;
+		}
+		inputfs.close();
+	}
+	libff::leave_block("Reading Wires");
+}
 
+void CircuitReader::mapValuesToProtoboard() {
+	libff::enter_block("map values to protoboard");
 	int zeropGateIndex = 0;
 	for (WireMap::iterator iter = variableMap.begin();
 			iter != variableMap.end(); ++iter) {
@@ -359,6 +397,7 @@ void CircuitReader::mapValuesToProtoboard() {
 		// assert(false);
 	}
 	printf("Assignment of values done .. \n");
+	libff::leave_block("map values to protoboard");
 
 }
 

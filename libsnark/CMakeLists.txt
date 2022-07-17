@@ -702,6 +702,28 @@ set_target_properties(run_ppzksnark
 )
 
 add_executable(
+  print_r1cs
+
+  jsnark_interface/Util.hpp
+  jsnark_interface/Util.cpp
+  jsnark_interface/CircuitReader.hpp
+  jsnark_interface/CircuitReader.cpp
+  jsnark_interface/print_r1cs.cpp
+)
+target_link_libraries(
+  print_r1cs
+
+  snark
+)
+
+set_target_properties(print_r1cs
+    PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY "jsnark_interface/"
+    LIBRARY_OUTPUT_DIRECTORY "jsnark_interface/"
+    RUNTIME_OUTPUT_DIRECTORY "jsnark_interface/"
+)
+
+add_executable(
   prove_r1cs_gg_ppzksnark
 
   jsnark_interface/Util.hpp
@@ -717,6 +739,29 @@ target_link_libraries(
 )
 
 set_target_properties(prove_r1cs_gg_ppzksnark
+    PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY "jsnark_interface/"
+    LIBRARY_OUTPUT_DIRECTORY "jsnark_interface/"
+    RUNTIME_OUTPUT_DIRECTORY "jsnark_interface/"
+)
+
+add_executable(
+  profile_reader
+
+  jsnark_interface/Util.hpp
+  jsnark_interface/Util.cpp
+  jsnark_interface/CircuitReader.hpp
+  jsnark_interface/CircuitReader.cpp
+  jsnark_interface/profile_reader.cpp
+)
+
+target_link_libraries(
+  profile_reader
+
+  snark
+)
+
+set_target_properties(profile_reader
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "jsnark_interface/"
     LIBRARY_OUTPUT_DIRECTORY "jsnark_interface/"

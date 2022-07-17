@@ -73,7 +73,7 @@ Everything should be fixed soon.
 If you are sure you know what you are doing, you can comment out the ASSERT line.
 */
 GLA::protoboard_t GLA::convert(const Protoboard& pb) const {
-	//GADGETLIB_ASSERT(pb.numVars()==getNextFreeIndex(), "Some Variables were created and not used, or, more than one protoboard was used.");
+	// GADGETLIB_ASSERT(pb.numVars()==getNextFreeIndex(), "Some Variables were created and not used, or, more than one protoboard was used.");
     return protoboard_t(convert(pb.constraintSystem()), convert(pb.assignment()));
 }
 

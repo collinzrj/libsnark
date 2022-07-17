@@ -8,7 +8,7 @@ void readIds(char* str, std::vector<unsigned int>& vec){
 	}
 }
 
-FieldT readFieldElementFromHex(char* inputStr){
+FieldT readFieldElementFromHex(const char* inputStr){
 	char constStrDecimal[150];
 	mpz_t integ;
 	mpz_init_set_str(integ, inputStr, 16);

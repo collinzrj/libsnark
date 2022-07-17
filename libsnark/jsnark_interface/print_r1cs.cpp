@@ -1,17 +1,66 @@
 /*
- * run_ppzksnark.cpp
- *
- *      Author: Ahmed Kosba
+ * print_r1cs.cpp * *      Author: Arasu Arun
  */
 
 #include "CircuitReader.hpp"
-#include <libsnark/gadgetlib2/integration.hpp>
-#include <libsnark/gadgetlib2/adapters.hpp>
+#include <libsnark/gadgetlib2/integration.hpp> #include <libsnark/gadgetlib2/adapters.hpp>
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/examples/run_r1cs_ppzksnark.hpp>
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/examples/run_r1cs_gg_ppzksnark.hpp>
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_gg_ppzksnark/r1cs_gg_ppzksnark.hpp>
 #include <libsnark/common/default_types/r1cs_gg_ppzksnark_pp.hpp>
+
+/* The matrix will printed as groups of the following lines:
+ * con count
+ * index
+ * coeff
+ * index
+ * coeff
+ *
+ * Here, con is the constraint number (row number of matrix)
+ * count is the number of non-zero values in the constraint.
+ * index, coeff are the non-zeros values of that row. 
+ *
+ */
+
+void print_matrix(std::vector<r1cs_constraint<FieldT>> constraints, int num_variables, int num_inputs, char which) {
+	// loop through all constraints
+	for (int i=0; i<constraints.size(); i++) {
+		r1cs_constraint<FieldT> constraint = constraints.at(i);
+
+		linear_combination<FieldT> row;
+		switch(which) {
+			case 'A': 
+				row = constraint.a;
+				break;
+			case 'B':
+				row = constraint.b;
+				break;
+			case 'C': 
+				row = constraint.c;
+				break;
+		}
+
+		std::vector<linear_term<FieldT>> entries = row.terms;
+		for (int j=0; j<entries.size(); j++) {
+			// constraint_num  index coeff 
+
+			// the next lines adjust for the difference in notation between xJsnark, Spartan
+			// xJsnark: (1, inputs, vars)
+			// Spartan: (vars, 1, inputs)
+			
+			int true_index = entries.at(j).index;
+			if (true_index <= num_inputs) {
+				true_index += num_variables;
+			} else {
+				true_index -= (num_inputs+1);
+			}
+			cout << i << " " <<  true_index << " ";
+			entries.at(j).coeff.print();
+		}
+	}
+}
+
 
 int main(int argc, char **argv) {
 
@@ -33,18 +82,13 @@ int main(int argc, char **argv) {
 
 	// Read the circuit, evaluate, and translate constraints
 	CircuitReader reader(argv[1 + inputStartIndex], argv[2 + inputStartIndex], pb);
-	libff::enter_block("get constraint system");
 	r1cs_constraint_system<FieldT> cs = get_constraint_system_from_gadgetlib2(
 			*pb);
-	libff::leave_block("get constraint system");
-	libff::enter_block("get full assignment");
+
+
+
 	const r1cs_variable_assignment<FieldT> full_assignment =
 			get_variable_assignment_from_gadgetlib2(*pb);
-	libff::leave_block("get full assignment");
-	// cout << "primary" << endl;
-    // for (auto e: full_assignment) {
-    //     e.as_bigint().print_hex();
-    // }
 	cs.primary_input_size = reader.getNumInputs() + reader.getNumOutputs();
 	cs.auxiliary_input_size = full_assignment.size() - cs.num_inputs();
 
@@ -54,6 +98,73 @@ int main(int argc, char **argv) {
 	const r1cs_auxiliary_input<FieldT> auxiliary_input(
 			full_assignment.begin() + cs.num_inputs(), full_assignment.end());
 
+
+	// Print R1CS Matrices
+	std::vector<r1cs_constraint<FieldT> > constraints = cs.constraints;
+	
+	/*    num_cons,
+    num_vars,
+    num_inputs,
+    num_non_zero_entries,
+    inst,
+    assignment_vars,
+    assignment_inputs,
+	 *
+	 */
+	// Number of constraints
+	cout << cs.num_constraints() << endl;
+	// Number of variables
+	cout << cs.num_variables() << endl;
+	// Number of inputs
+	cout << cs.num_inputs() << endl;
+
+	int num_inputs = cs.num_inputs();
+	int num_variables = cs.num_variables()-num_inputs;
+	/*
+	cout << "Full Assignment" << full_assignment.size() << endl;
+	cout << "Primary " << cs.primary_input_size<< endl;
+	cout << "Auxiliary " << cs.auxiliary_input_size<< endl;
+	*/
+
+	cout << "New Matrix A" << endl;
+	print_matrix(constraints, num_variables, num_inputs, 'A');
+
+	cout << "New Matrix B" << endl;
+	print_matrix(constraints, num_variables, num_inputs, 'B');
+
+	cout << "New Matrix C" << endl;
+	print_matrix(constraints, num_variables, num_inputs, 'C');
+
+	cout << "New Input Vector" << endl;
+	for (int i=0; i < full_assignment.size(); i++) {
+		full_assignment.at(i).print();
+	}
+
+
+	/*
+	for (int i=0; i < constraints.size(); i++) {
+		r1cs_constraint<FieldT> constraint = constraints.at(i);
+		linear_combination<FieldT> a = constraint.a;
+		linear_combination<FieldT> b = constraint.b;
+		linear_combination<FieldT> c = constraint.c;
+
+		ofstream a_file;
+		a_file.open ("../gen/a_matrix.txt");
+		std::vector<linear_term<FieldT>> b_terms = b.terms;
+		for (int i=0; i<b_terms.size(); i++) {
+			cout << b_terms.at(i).index << " ";
+			b_terms.at(i).coeff.print();
+			printf(" ");
+			//a_file << a_terms.at(i).coeff;
+			//a_file << " ";
+//			a_file << a_terms.at(i).coeff.print();
+		}
+		a_file.close();
+	}
+	*/
+
+	// end of printing
+	/*
 
 	// only print the circuit output values if both flags MONTGOMERY and BINARY outputs are off (see CMakeLists file)
 	// In the default case, these flags should be ON for faster performance.
@@ -100,6 +211,7 @@ int main(int argc, char **argv) {
 		cout << "Problem occurred while running the ppzksnark algorithms .. " << endl;
 		return -1;
 	}	
+	*/
+
 	return 0;
 }
-

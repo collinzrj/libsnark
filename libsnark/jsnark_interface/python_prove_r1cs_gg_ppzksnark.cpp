@@ -30,37 +30,31 @@ extern "C"
 		return pk;
 	}
 
-	char* generate_proof(char* arith_path, char* in_path, r1cs_gg_ppzksnark_proving_key<Dpp>* pk)
+	void generate_proof(char* arith_path, char* in_path, char* proof_path, r1cs_gg_ppzksnark_proving_key<Dpp>* pk)
 	{
 		libff::start_profiling();
 		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
 		ProtoboardPtr pb = gadgetlib2::Protoboard::create(gadgetlib2::R1P);
 		// Read the circuit, evaluate, and translate constraints
 		CircuitReader reader(arith_path, in_path, pb);
-		r1cs_constraint_system<FieldT> cs = get_constraint_system_from_gadgetlib2(
-			*pb);
+		// r1cs_constraint_system<FieldT> cs = get_constraint_system_from_gadgetlib2(
+		// 	*pb);
+		libff::enter_block("get full assignment");
 		const r1cs_variable_assignment<FieldT> full_assignment = get_variable_assignment_from_gadgetlib2(*pb);
-		cs.primary_input_size = reader.getNumInputs() + reader.getNumOutputs();
-		cs.auxiliary_input_size = full_assignment.size() - cs.num_inputs();
+		libff::leave_block("get full assignment");
+		// cs.primary_input_size = reader.getNumInputs() + reader.getNumOutputs();
+		// cs.auxiliary_input_size = full_assignment.size() - cs.num_inputs();
 
 		// extract primary and auxiliary input
 		const r1cs_primary_input<FieldT> primary_input(full_assignment.begin(),
-													   full_assignment.begin() + cs.num_inputs());
+													   full_assignment.begin() + 165);
 		const r1cs_auxiliary_input<FieldT> auxiliary_input(
-			full_assignment.begin() + cs.num_inputs(), full_assignment.end());
+			full_assignment.begin() + 165, full_assignment.end());
 
-		r1cs_example<FieldT> example(cs, primary_input, auxiliary_input);
-		r1cs_gg_ppzksnark_proof<Dpp> proof = r1cs_gg_ppzksnark_prover<Dpp>(*pk, example.primary_input, example.auxiliary_input);
-		std::stringstream proofstream;
-		proofstream << proof;
-		// TODO: fix hardcode here
-		char* result = new char[134];
-		char c;
-		int i = 0;
-		for (int i = 0; i < 134; i++) {
-			result[i] = proofstream.get();
-		}
-		return result;
+		// r1cs_example<FieldT> example(cs, primary_input, auxiliary_input);
+		r1cs_gg_ppzksnark_proof<Dpp> proof = r1cs_gg_ppzksnark_prover<Dpp>(*pk, primary_input, auxiliary_input);
+		std::ofstream ostrm(proof_path, std::ios::binary);
+    	ostrm << proof;
 	}
 
 	r1cs_gg_ppzksnark_processed_verification_key<Dpp>* read_pvk(const char* pvk_path) {

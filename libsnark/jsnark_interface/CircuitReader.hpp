@@ -83,8 +83,9 @@ private:
 
 	unsigned int currentVariableIdx, currentLinearCombinationIdx;
 
-	void parseAndEval(char* arithFilepath, char* inputsFilepath);
+	void parseAndEval(char* arithFilepath);
 	void constructCircuit(char*);  // Second Pass:
+	void readWireValues(char* inputsFilepath);
 	void mapValuesToProtoboard();
 
 	void find(unsigned int, LinearCombinationPtr&, bool intentionToEdit = false);
