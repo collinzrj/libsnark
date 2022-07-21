@@ -81,14 +81,19 @@ int main(int argc, char **argv) {
 	} 	
 
 	// Read the circuit, evaluate, and translate constraints
+	libff::enter_block("Construct Reader");
 	CircuitReader reader(argv[1 + inputStartIndex], argv[2 + inputStartIndex], pb);
+	libff::leave_block("Construct Reader");
+	libff::enter_block("Get CS");
 	r1cs_constraint_system<FieldT> cs = get_constraint_system_from_gadgetlib2(
 			*pb);
+	libff::leave_block("Get CS");
 
 
-
+	libff::enter_block("Output file");
 	const r1cs_variable_assignment<FieldT> full_assignment =
 			get_variable_assignment_from_gadgetlib2(*pb);
+	
 	cs.primary_input_size = reader.getNumInputs() + reader.getNumOutputs();
 	cs.auxiliary_input_size = full_assignment.size() - cs.num_inputs();
 
@@ -97,121 +102,27 @@ int main(int argc, char **argv) {
 			full_assignment.begin() + cs.num_inputs());
 	const r1cs_auxiliary_input<FieldT> auxiliary_input(
 			full_assignment.begin() + cs.num_inputs(), full_assignment.end());
-
-
 	// Print R1CS Matrices
 	std::vector<r1cs_constraint<FieldT> > constraints = cs.constraints;
-	
-	/*    num_cons,
-    num_vars,
-    num_inputs,
-    num_non_zero_entries,
-    inst,
-    assignment_vars,
-    assignment_inputs,
-	 *
-	 */
 	// Number of constraints
 	cout << cs.num_constraints() << endl;
 	// Number of variables
 	cout << cs.num_variables() << endl;
 	// Number of inputs
 	cout << cs.num_inputs() << endl;
-
 	int num_inputs = cs.num_inputs();
 	int num_variables = cs.num_variables()-num_inputs;
-	/*
-	cout << "Full Assignment" << full_assignment.size() << endl;
-	cout << "Primary " << cs.primary_input_size<< endl;
-	cout << "Auxiliary " << cs.auxiliary_input_size<< endl;
-	*/
-
 	cout << "New Matrix A" << endl;
 	print_matrix(constraints, num_variables, num_inputs, 'A');
-
 	cout << "New Matrix B" << endl;
 	print_matrix(constraints, num_variables, num_inputs, 'B');
-
 	cout << "New Matrix C" << endl;
 	print_matrix(constraints, num_variables, num_inputs, 'C');
-
 	cout << "New Input Vector" << endl;
 	for (int i=0; i < full_assignment.size(); i++) {
-		full_assignment.at(i).print();
+		full_assignment.at(i).as_bigint();
 	}
-
-
-	/*
-	for (int i=0; i < constraints.size(); i++) {
-		r1cs_constraint<FieldT> constraint = constraints.at(i);
-		linear_combination<FieldT> a = constraint.a;
-		linear_combination<FieldT> b = constraint.b;
-		linear_combination<FieldT> c = constraint.c;
-
-		ofstream a_file;
-		a_file.open ("../gen/a_matrix.txt");
-		std::vector<linear_term<FieldT>> b_terms = b.terms;
-		for (int i=0; i<b_terms.size(); i++) {
-			cout << b_terms.at(i).index << " ";
-			b_terms.at(i).coeff.print();
-			printf(" ");
-			//a_file << a_terms.at(i).coeff;
-			//a_file << " ";
-//			a_file << a_terms.at(i).coeff.print();
-		}
-		a_file.close();
-	}
-	*/
-
-	// end of printing
-	/*
-
-	// only print the circuit output values if both flags MONTGOMERY and BINARY outputs are off (see CMakeLists file)
-	// In the default case, these flags should be ON for faster performance.
-
-#if !defined(MONTGOMERY_OUTPUT) && !defined(OUTPUT_BINARY)
-	cout << endl << "Printing output assignment in readable format:: " << endl;
-	std::vector<Wire> outputList = reader.getOutputWireIds();
-	int start = reader.getNumInputs();
-	int end = reader.getNumInputs() +reader.getNumOutputs();	
-	for (int i = start ; i < end; i++) {
-		cout << "[output]" << " Value of Wire # " << outputList[i-reader.getNumInputs()] << " :: ";
-		cout << primary_input[i];
-		cout << endl;
-	}
-	cout << endl;
-#endif
-
-	//assert(cs.is_valid());
-
-	// removed cs.is_valid() check due to a suspected (off by 1) issue in a newly added check in their method.
-        // A follow-up will be added.
-	if(!cs.is_satisfied(primary_input, auxiliary_input)){
-		cout << "The constraint system is  not satisifed by the value assignment - Terminating." << endl;
-		return -1;
-	}
-
-
-	r1cs_example<FieldT> example(cs, primary_input, auxiliary_input);
-	
-	const bool test_serialization = false;
-	bool successBit = false;
-	if(argc == 3) {
-		successBit = libsnark::run_r1cs_ppzksnark<libff::default_ec_pp>(example, test_serialization);
-
-	} else {
-		// The following code makes use of the observation that 
-		// libsnark::default_r1cs_gg_ppzksnark_pp is the same as libff::default_ec_pp (see r1cs_gg_ppzksnark_pp.hpp)
-		// otherwise, the following code won't work properly, as GadgetLib2 is hardcoded to use libff::default_ec_pp.
-		successBit = libsnark::run_r1cs_gg_ppzksnark<libsnark::default_r1cs_gg_ppzksnark_pp>(
-			example, test_serialization);
-	}
-
-	if(!successBit){
-		cout << "Problem occurred while running the ppzksnark algorithms .. " << endl;
-		return -1;
-	}	
-	*/
+	libff::leave_block("Output file");
 
 	return 0;
 }

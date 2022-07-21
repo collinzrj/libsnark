@@ -836,6 +836,38 @@ set_target_properties(verify_r1cs_gg_ppzksnark
     RUNTIME_OUTPUT_DIRECTORY "jsnark_interface/"
 )
 
+add_executable(
+  test_rust_bridge
+
+  jsnark_interface/test_rust_bridge.cpp
+)
+
+include(ExternalProject)
+
+ExternalProject_Add(
+    rust_example
+    DOWNLOAD_COMMAND ""
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND cargo build COMMAND cargo build --release
+    BINARY_DIR "${CMAKE_SOURCE_DIR}/depends/Spartan"
+    INSTALL_COMMAND ""
+    LOG_BUILD ON)
+
+add_dependencies(test_rust_bridge rust_example)
+
+target_link_libraries(test_rust_bridge
+    debug "${CMAKE_SOURCE_DIR}/depends/Spartan/target/debug/liblibspartan.a"
+    optimized "${CMAKE_SOURCE_DIR}/depends/Spartan/target/release/liblibspartan.a"
+    pthread dl)
+
+set_target_properties(test_rust_bridge
+    PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY "jsnark_interface/"
+    LIBRARY_OUTPUT_DIRECTORY "jsnark_interface/"
+    RUNTIME_OUTPUT_DIRECTORY "jsnark_interface/"
+)
+
+
 include(CTest)
 add_test(
   NAME common_routing_algorithms_test

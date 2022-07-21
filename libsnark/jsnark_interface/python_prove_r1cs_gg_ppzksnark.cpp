@@ -57,6 +57,23 @@ extern "C"
     	ostrm << proof;
 	}
 
+	void generate_proof_spartan(char* arith_path, char* in_path) {
+		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
+		ProtoboardPtr pb = gadgetlib2::Protoboard::create(gadgetlib2::R1P);
+		CircuitReader reader(arith_path, in_path, pb);
+		const r1cs_variable_assignment<FieldT> full_assignment = get_variable_assignment_from_gadgetlib2(*pb);
+		int num_input = pb->numInputs();
+		int num_variables = full_assignment.size() - num_input;
+		int data_n = libff::dalek_r_limbs;
+		unsigned long full_assignment_converted[full_assignment.size() * data_n];
+		for (int i = 0; i < full_assignment.size(); i++) {
+			for (int j = 0; j < data_n; j++) {
+				full_assignment_converted[i * data_n + j] = full_assignment[i].as_bigint().data[j];
+			}
+		}
+		nizk_prove(full_assignment_converted, num_input * data_n, full_assignment_converted + num_input * data_n, num_variables * data_n);
+	}
+
 	r1cs_gg_ppzksnark_processed_verification_key<Dpp>* read_pvk(const char* pvk_path) {
 		gadgetlib2::initPublicParamsFromDefaultPp();
 		gadgetlib2::GadgetLibAdapter::resetVariableIndex();

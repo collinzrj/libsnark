@@ -16,3 +16,6 @@
 [submodule "depends/libfqfft"]
 	path = depends/libfqfft
 	url = https://github.com/scipr-lab/libfqfft.git
+[submodule "depends/Spartan"]
+	path = depends/Spartan
+	url = https://github.com/collinzrj/Spartan.git
