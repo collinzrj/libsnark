@@ -839,6 +839,10 @@ set_target_properties(verify_r1cs_gg_ppzksnark
 add_executable(
   test_rust_bridge
 
+  jsnark_interface/Util.hpp
+  jsnark_interface/Util.cpp
+  jsnark_interface/CircuitReader.hpp
+  jsnark_interface/CircuitReader.cpp
   jsnark_interface/test_rust_bridge.cpp
 )
 
@@ -846,9 +850,11 @@ include(ExternalProject)
 
 ExternalProject_Add(
     rust_example
+    PREFIX "${CMAKE_SOURCE_DIR}/depends/Spartan"
     DOWNLOAD_COMMAND ""
     CONFIGURE_COMMAND ""
     BUILD_COMMAND cargo build COMMAND cargo build --release
+    UPDATE_COMMAND cargo build COMMAND cargo build --release 
     BINARY_DIR "${CMAKE_SOURCE_DIR}/depends/Spartan"
     INSTALL_COMMAND ""
     LOG_BUILD ON)
@@ -858,7 +864,7 @@ add_dependencies(test_rust_bridge rust_example)
 target_link_libraries(test_rust_bridge
     debug "${CMAKE_SOURCE_DIR}/depends/Spartan/target/debug/liblibspartan.a"
     optimized "${CMAKE_SOURCE_DIR}/depends/Spartan/target/release/liblibspartan.a"
-    pthread dl)
+    pthread dl snark)
 
 set_target_properties(test_rust_bridge
     PROPERTIES
