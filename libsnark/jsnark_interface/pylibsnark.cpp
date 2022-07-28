@@ -20,6 +20,37 @@ using std::endl;
 
 extern "C"
 {
+	void generate_pk_pvk(char* arith_path, char* in_path, char* pk_path, char* pvk_path) {
+		libff::start_profiling();
+		gadgetlib2::initPublicParamsFromDefaultPp();
+		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
+		ProtoboardPtr pb = gadgetlib2::Protoboard::create(gadgetlib2::R1P);
+
+		// Read the circuit, evaluate, and translate constraints
+		CircuitReader reader(arith_path, in_path, pb);
+		r1cs_constraint_system<FieldT> cs = get_constraint_system_from_gadgetlib2(
+				*pb);
+		const r1cs_variable_assignment<FieldT> full_assignment =
+				get_variable_assignment_from_gadgetlib2(*pb);
+		cs.primary_input_size = reader.getNumInputs() + reader.getNumOutputs();
+		cs.auxiliary_input_size = full_assignment.size() - cs.num_inputs();
+
+		// extract primary and auxiliary input
+		const r1cs_primary_input<FieldT> primary_input(full_assignment.begin(),
+				full_assignment.begin() + cs.num_inputs());
+		const r1cs_auxiliary_input<FieldT> auxiliary_input(
+				full_assignment.begin() + cs.num_inputs(), full_assignment.end());
+
+		r1cs_example<FieldT> example(cs, primary_input, auxiliary_input);
+		r1cs_gg_ppzksnark_keypair<Dpp> keypair = r1cs_gg_ppzksnark_generator<Dpp>(example.constraint_system);
+		r1cs_gg_ppzksnark_processed_verification_key<Dpp> pvk = r1cs_gg_ppzksnark_verifier_process_vk<Dpp>(keypair.vk);
+		r1cs_gg_ppzksnark_proving_key<Dpp> pk = keypair.pk;
+	
+		std::ofstream ostrm(pk_path, std::ios::binary);
+		ostrm << pk;
+		std::ofstream ostrm2(pvk_path, std::ios::binary);
+		ostrm2 << pvk;
+	}
 
 	r1cs_gg_ppzksnark_proving_key<Dpp>* read_pk(const char* pk_path) {
 		gadgetlib2::initPublicParamsFromDefaultPp();
@@ -55,23 +86,6 @@ extern "C"
 		r1cs_gg_ppzksnark_proof<Dpp> proof = r1cs_gg_ppzksnark_prover<Dpp>(*pk, primary_input, auxiliary_input);
 		std::ofstream ostrm(proof_path, std::ios::binary);
     	ostrm << proof;
-	}
-
-	void generate_proof_spartan(char* arith_path, char* in_path) {
-		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
-		ProtoboardPtr pb = gadgetlib2::Protoboard::create(gadgetlib2::R1P);
-		CircuitReader reader(arith_path, in_path, pb);
-		const r1cs_variable_assignment<FieldT> full_assignment = get_variable_assignment_from_gadgetlib2(*pb);
-		int num_input = pb->numInputs();
-		int num_variables = full_assignment.size() - num_input;
-		int data_n = libff::dalek_r_limbs;
-		unsigned long full_assignment_converted[full_assignment.size() * data_n];
-		for (int i = 0; i < full_assignment.size(); i++) {
-			for (int j = 0; j < data_n; j++) {
-				full_assignment_converted[i * data_n + j] = full_assignment[i].as_bigint().data[j];
-			}
-		}
-		nizk_prove(full_assignment_converted, num_input * data_n, full_assignment_converted + num_input * data_n, num_variables * data_n);
 	}
 
 	r1cs_gg_ppzksnark_processed_verification_key<Dpp>* read_pvk(const char* pvk_path) {

@@ -15,9 +15,6 @@ struct NIZK;
 /// `NIZKGens` holds public parameters for producing and verifying proofs with the Spartan NIZK
 struct NIZKGens;
 
-template<typename T = void>
-struct Vec;
-
 struct SpartanFieldElement {
   uint8_t val[32];
 };
@@ -47,20 +44,30 @@ struct SpartanAssignment {
 
 extern "C" {
 
-void nizk_generate(Vec<Entry> matrix_A,
-                   Vec<Entry> matrix_B,
-                   Vec<Entry> matrix_C,
+void nizk_generate(SpartanR1CSMatrixs matrixs,
+                   SpartanAssignment var_assignment,
+                   SpartanAssignment input_assignment,
                    size_t num_constraints,
-                   size_t num_variables,
-                   size_t num_inputs);
+                   char *gens_path,
+                   char *inst_path);
 
-void nizk_prove(NIZKGens *gens, Instance *inst, Vec<uint8_t[32]> vars, Vec<uint8_t[32]> inputs);
+void nizk_prove(NIZKGens *gens,
+                Instance *inst,
+                SpartanAssignment var_assignment,
+                SpartanAssignment input_assignment,
+                char *proof_path);
+
+NIZKGens *nizk_read_gens(char *gens_path);
+
+Instance *nizk_read_inst(char *inst_path);
+
+NIZK *nizk_read_proof();
 
 void nizk_test(SpartanR1CSMatrixs matrixs,
                SpartanAssignment var_assignment,
                SpartanAssignment input_assignment,
                size_t num_constraints);
 
-bool nizk_verify(NIZKGens *gens, Instance *inst, NIZK *proof, Vec<uint8_t[32]> inputs);
+bool nizk_verify(NIZKGens *gens, Instance *inst, NIZK *proof, SpartanAssignment input_assignment);
 
 } // extern "C"

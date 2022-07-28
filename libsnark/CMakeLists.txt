@@ -769,22 +769,48 @@ set_target_properties(profile_reader
 )
 
 add_library(
-  python_prove_r1cs_gg_ppzksnark
+  pylibsnark
   SHARED
 
   jsnark_interface/Util.hpp
   jsnark_interface/Util.cpp
   jsnark_interface/CircuitReader.hpp
   jsnark_interface/CircuitReader.cpp
-  jsnark_interface/python_prove_r1cs_gg_ppzksnark.cpp
+  jsnark_interface/pylibsnark.cpp
 )
 target_link_libraries(
-  python_prove_r1cs_gg_ppzksnark
+  pylibsnark
 
   snark
 )
 
-set_target_properties(python_prove_r1cs_gg_ppzksnark
+set_target_properties(pylibsnark
+    PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    ARCHIVE_OUTPUT_DIRECTORY "jsnark_interface/"
+    LIBRARY_OUTPUT_DIRECTORY "jsnark_interface/"
+    RUNTIME_OUTPUT_DIRECTORY "jsnark_interface/"
+)
+
+add_library(
+  pyspartan
+  SHARED
+
+  jsnark_interface/Util.hpp
+  jsnark_interface/Util.cpp
+  jsnark_interface/CircuitReader.hpp
+  jsnark_interface/CircuitReader.cpp
+  jsnark_interface/pyspartan.cpp
+)
+
+add_dependencies(pyspartan spartan)
+
+target_link_libraries(pyspartan
+    debug "${CMAKE_SOURCE_DIR}/depends/Spartan/target/debug/liblibspartan.a"
+    optimized "${CMAKE_SOURCE_DIR}/depends/Spartan/target/release/liblibspartan.a"
+    pthread dl snark)
+
+set_target_properties(pyspartan
     PROPERTIES
     POSITION_INDEPENDENT_CODE ON
     ARCHIVE_OUTPUT_DIRECTORY "jsnark_interface/"
@@ -849,7 +875,7 @@ add_executable(
 include(ExternalProject)
 
 ExternalProject_Add(
-    rust_example
+    spartan
     PREFIX "${CMAKE_SOURCE_DIR}/depends/Spartan"
     DOWNLOAD_COMMAND ""
     CONFIGURE_COMMAND ""
@@ -859,7 +885,7 @@ ExternalProject_Add(
     INSTALL_COMMAND ""
     LOG_BUILD ON)
 
-add_dependencies(test_rust_bridge rust_example)
+add_dependencies(test_rust_bridge spartan)
 
 target_link_libraries(test_rust_bridge
     debug "${CMAKE_SOURCE_DIR}/depends/Spartan/target/debug/liblibspartan.a"
