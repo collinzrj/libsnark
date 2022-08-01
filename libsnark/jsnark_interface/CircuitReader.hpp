@@ -52,15 +52,16 @@ typedef ::std::map<Wire, unsigned int> WireMap;
 
 class CircuitReader {
 public:
-	CircuitReader(char* arithFilepath, char* inputsFilepath, ProtoboardPtr pb);
+	CircuitReader(char* arithFilepath);
+	ProtoboardPtr pb;
 
 	int getNumInputs() { return numInputs;}
 	int getNumOutputs() { return numOutputs;}
 	std::vector<Wire> getInputWireIds() const { return inputWireIds; }
 	std::vector<Wire> getOutputWireIds() const { return outputWireIds; }
+	void parseInputFile(char* inputsFilepath);
 
 private:
-	ProtoboardPtr pb;
 
 	std::vector<VariablePtr> variables;
 	std::vector<LinearCombinationPtr> wireLinearCombinations;

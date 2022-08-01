@@ -36,6 +36,7 @@ SpartanFieldElement field_t_to_spartan(FieldT f) {
 
 SpartanR1CSMatrixs get_matrixs(vector<r1cs_constraint<FieldT>> constraints, int num_variables, int num_inputs) {
 	vector<vector<Entry>> result = {vector<Entry>(), vector<Entry>(), vector<Entry>()};
+	size_t num_nz_entries = 0;
 	for (int i=0; i<constraints.size(); i++) {
 		r1cs_constraint<FieldT> constraint = constraints.at(i);
 		vector<linear_combination<FieldT>> rows = {constraint.a, constraint.b, constraint.c};
@@ -53,6 +54,9 @@ SpartanR1CSMatrixs get_matrixs(vector<r1cs_constraint<FieldT>> constraints, int 
 					true_index -= (num_inputs+1);
 				}
 				Entry entry = {i, true_index, field_t_to_spartan(e.coeff)};
+				if (e.coeff.as_ulong() != 0) {
+					num_nz_entries += 1;
+				}
 				result[j].push_back(entry);
 			}
 		}
@@ -66,7 +70,8 @@ SpartanR1CSMatrixs get_matrixs(vector<r1cs_constraint<FieldT>> constraints, int 
 	return {
     {matrix_A, result[0].size()},
     {matrix_B, result[1].size()},
-    {matrix_C, result[2].size()}
+    {matrix_C, result[2].size()},
+	num_nz_entries
   };
 }
 
@@ -82,6 +87,16 @@ pair<SpartanAssignment, SpartanAssignment> get_assignments(r1cs_variable_assignm
   return { {var_assignment, num_variables}, {input_assignment, num_inputs}};
 }
 
+SpartanAssignment copy_assignment(SpartanAssignment assignment) {
+	SpartanAssignment result;
+	result.size = assignment.size;
+	result.val = new SpartanFieldElement[assignment.size];
+	for (int i = 0; i < assignment.size; i++) {
+		result.val[i] = assignment.val[i]; 
+	}
+	return result;
+}
+
 SpartanAssignment get_assignment(r1cs_variable_assignment<FieldT> assignment) {
 	auto result = new SpartanFieldElement[assignment.size()];
 	for (int assign_idx = 0; assign_idx < assignment.size(); assign_idx++) {
@@ -92,42 +107,60 @@ SpartanAssignment get_assignment(r1cs_variable_assignment<FieldT> assignment) {
 
 extern "C"
 {
-	void spartan_generate(char* arith_path, char* in_path, char* gens_path, char* inst_path) {
+	// Common
+	CircuitReader* read_circuit(char* arith_path) {
+		CircuitReader* reader = new CircuitReader(arith_path);
+		return reader;
+	}
+
+
+	// SNARK
+	void pysnark_generate(char* arith_path, char* gens_path, char* inst_path, char* comm_path, char* decomm_path) {
+		libff::start_profiling();
 		gadgetlib2::initPublicParamsFromDefaultPp();
 		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
 		ProtoboardPtr pb = gadgetlib2::Protoboard::create(gadgetlib2::R1P);
-		CircuitReader reader(arith_path, in_path, pb);
-		auto cs = get_constraint_system_from_gadgetlib2(*pb);
-		auto full_assignment = get_variable_assignment_from_gadgetlib2(*pb);
+		CircuitReader reader(arith_path);
+		cout << "check point 1" << endl;
+		auto cs = get_constraint_system_from_gadgetlib2(*reader.pb);
+		cout << "check point 2" << endl;
+		auto full_assignment = get_variable_assignment_from_gadgetlib2(*reader.pb);
+		cout << "check point 3" << endl;
 		size_t num_inputs = reader.getNumInputs() + reader.getNumOutputs();
+		cout << "check point 4" << endl;
 		size_t num_variables = full_assignment.size() - num_inputs;
+		cout << "check point 5" << endl;
 		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs);
+		cout << "check point 6" << endl;
 		auto matrixs = get_matrixs(cs.constraints, num_variables, num_inputs);
-		nizk_generate(matrixs, assign_pair.first, assign_pair.second, cs.num_constraints(), gens_path, inst_path);
+		cout << "check point 7" << endl;
+		snark_generate(matrixs, assign_pair.first, assign_pair.second, cs.num_constraints(), gens_path, inst_path, comm_path, decomm_path);
+		cout << "check point 8" << endl;
 	}
 
-	NIZKGens* spartan_read_gens(char* gens_path) {
-		return nizk_read_gens(gens_path);
-	}
-
-	Instance* spartan_read_inst(char* inst_path) {
-		return nizk_read_inst(inst_path);
-	}
-
-	void spartan_prove(char* arith_path, char* in_path, char* proof_path, NIZKGens* gens, Instance* inst) {
-		gadgetlib2::initPublicParamsFromDefaultPp();
-		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
-		ProtoboardPtr pb = gadgetlib2::Protoboard::create(gadgetlib2::R1P);
-		CircuitReader reader(arith_path, in_path, pb);
-		auto cs = get_constraint_system_from_gadgetlib2(*pb);
-		auto full_assignment = get_variable_assignment_from_gadgetlib2(*pb);
-		size_t num_inputs = reader.getNumInputs() + reader.getNumOutputs();
+	void pysnark_prove(CircuitReader* reader, char* in_path, char* proof_path, SNARKGens* gens, Instance* inst, ComputationDecommitment* decomm) {
+		libff::start_profiling();
+		libff::enter_block("Spartan Prove");
+		libff::enter_block("parse input file");
+		reader->parseInputFile(in_path);
+		libff::leave_block("parse input file");
+		libff::enter_block("get variable assignment");
+		auto full_assignment = get_variable_assignment_from_gadgetlib2(*reader->pb);
+		libff::leave_block("get variable assignment");
+		libff::enter_block("get nums");
+		size_t num_inputs = reader->getNumInputs() + reader->getNumOutputs();
 		size_t num_variables = full_assignment.size() - num_inputs;
+		libff::leave_block("get nums");
+		libff::enter_block("get assignments");
 		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs);
-		nizk_prove(gens, inst, assign_pair.first, assign_pair.second, proof_path);
+		libff::leave_block("get assignments");	
+		libff::enter_block("snark prove");
+		snark_prove(gens, inst, decomm, assign_pair.first, assign_pair.second, proof_path);
+		libff::leave_block("snark prove");
+		libff::leave_block("Spartan Prove");
 	}
 
-	void spartan_verify(NIZKGens* gens, Instance* inst, char* public_inputs) {
+	void pysnark_verify(SNARKGens* gens, ComputationCommitment* comm, char* public_inputs) {
 		vector<FieldT> primary_input;
 		std::istringstream inputstream(public_inputs, ifstream::in);
 		string line;
@@ -138,7 +171,81 @@ extern "C"
 			sscanf(line.c_str(), "%u %s", &wireId, inputStr);
 			primary_input.push_back(readFieldElementFromHex(inputStr));
 		}
-		auto proof = nizk_read_proof();
-		nizk_verify(gens, inst, proof, get_assignment(primary_input));
+		auto proof = snark_read_proof("r1cs_proof");
+		snark_verify(gens, comm, proof, get_assignment(primary_input));
 	}
+
+	void pysnark_test(char* arith_path, char* in_path) {
+		libff::start_profiling();
+		gadgetlib2::initPublicParamsFromDefaultPp();
+		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
+		ProtoboardPtr pb = gadgetlib2::Protoboard::create(gadgetlib2::R1P);
+		CircuitReader reader(arith_path);
+		auto cs = get_constraint_system_from_gadgetlib2(*reader.pb);
+		auto full_assignment = get_variable_assignment_from_gadgetlib2(*reader.pb);
+		size_t num_inputs = reader.getNumInputs() + reader.getNumOutputs();
+		size_t num_variables = full_assignment.size() - num_inputs;
+		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs);
+		auto matrixs = get_matrixs(cs.constraints, num_variables, num_inputs);
+		snark_generate(matrixs, assign_pair.first, assign_pair.second, cs.num_constraints(), "tmp_gens", "tmp_inst", "tmp_comm", "tmp_decomm");
+		SNARKGens* gens = snark_read_gens("tmp_gens");
+		Instance* inst = snark_read_inst("tmp_inst");
+		ComputationCommitment* comm = snark_read_comm("tmp_comm");
+		ComputationDecommitment* decomm = snark_read_decomm("tmp_decomm");
+		pysnark_prove(&reader, in_path, "tmp_proof", gens, inst, decomm);
+	}
+
+	// NIZK
+	void pynizk_generate(char* arith_path, char* gens_path, char* inst_path) {
+		gadgetlib2::initPublicParamsFromDefaultPp();
+		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
+		CircuitReader reader(arith_path);
+		auto cs = get_constraint_system_from_gadgetlib2(*(reader.pb));
+		auto full_assignment = get_variable_assignment_from_gadgetlib2(*(reader.pb));
+		size_t num_inputs = reader.getNumInputs() + reader.getNumOutputs();
+		size_t num_variables = full_assignment.size() - num_inputs;
+		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs);
+		auto matrixs = get_matrixs(cs.constraints, num_variables, num_inputs);
+		nizk_generate(matrixs, assign_pair.first, assign_pair.second, cs.num_constraints(), gens_path, inst_path);
+	}
+
+	pair<SpartanAssignment, SpartanAssignment>* pynizk_prove_preprocess(CircuitReader* reader, char* in_path) {
+		reader->parseInputFile(in_path);
+		auto full_assignment = get_variable_assignment_from_gadgetlib2(*(reader->pb));
+		size_t num_inputs = reader->getNumInputs() + reader->getNumOutputs();
+		size_t num_variables = full_assignment.size() - num_inputs;
+		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs);
+		auto result = new pair<SpartanAssignment, SpartanAssignment>;
+		*result = assign_pair;
+		return result;
+	}
+
+	void pynizk_prove(pair<SpartanAssignment, SpartanAssignment>* assign_pair, char* proof_path, NIZKGens* gens, Instance* inst) {
+		cout << "begin prove" << endl;
+		nizk_prove(gens, inst, copy_assignment(assign_pair->first), copy_assignment(assign_pair->second), proof_path);
+	}
+
+	// used for benchmark in prover	
+	void pynizk_verify_benchmark(pair<SpartanAssignment, SpartanAssignment>* assign_pair, char* proof_path, NIZKGens* gens, Instance* inst) {
+		cout << "will verify proof on " << proof_path << endl;
+		NIZK* proof = nizk_read_proof(proof_path);
+		cout << "read proof finish" << endl;
+		bool result = nizk_verify(gens, inst, proof, copy_assignment(assign_pair->second));
+		cout << "verify result " << result << endl;
+	}
+
+	// void pynizk_verify(NIZKGens* gens, Instance* inst, char* public_inputs) {
+	// 	vector<FieldT> primary_input;
+	// 	std::istringstream inputstream(public_inputs, ifstream::in);
+	// 	string line;
+	// 	char* inputStr;
+	// 	while (getline(inputstream, line)) {
+	// 		Wire wireId;
+	// 		inputStr = new char[line.size()];
+	// 		sscanf(line.c_str(), "%u %s", &wireId, inputStr);
+	// 		primary_input.push_back(readFieldElementFromHex(inputStr));
+	// 	}
+	// 	auto proof = nizk_read_proof();
+	// 	nizk_verify(gens, inst, proof, get_assignment(primary_input));
+	// }
 }

@@ -7,26 +7,20 @@
 #include "CircuitReader.hpp"
 #include <chrono>
 
-CircuitReader::CircuitReader(char* arithFilepath, char* inputsFilepath,
-		ProtoboardPtr pb) {
-
-	this->pb = pb;
+CircuitReader::CircuitReader(char* arithFilepath) {
+	gadgetlib2::initPublicParamsFromDefaultPp();
+	gadgetlib2::GadgetLibAdapter::resetVariableIndex();
+	this->pb = gadgetlib2::Protoboard::create(gadgetlib2::R1P);
 	numWires = 0;
 	numInputs = numNizkInputs = numOutputs = 0;
 
 	parseAndEval(arithFilepath);
 	constructCircuit(arithFilepath);
+}
+
+void CircuitReader::parseInputFile(char* inputsFilepath) {
 	readWireValues(inputsFilepath);
 	mapValuesToProtoboard();
-
-	cout << "variableMap " << variableMap.size() << endl;
-
-	wireLinearCombinations.clear();
-	wireValues.clear();
-	variables.clear();
-	variableMap.clear();
-	zeropMap.clear();
-	zeroPwires.clear();
 }
 
 void CircuitReader::parseAndEval(char* arithFilepath) {
@@ -152,53 +146,6 @@ void CircuitReader::parseAndEval(char* arithFilepath) {
 				printf("Error: unrecognized line: %s\n", line.c_str());
 				assert(0);
 			}
-
-			// TODO: separate evaluation from parsing completely to get accurate evaluation cost
-			//	 Calling  libff::get_nsec_time(); repetitively as in the old version adds much overhead 
-			// TODO 2: change circuit format to enable skipping some lines during evaluation
-			//       Not all intermediate wire values need to be computed in this phase
-			// TODO 3: change circuit format to make common constants defined once			
-	
-			//begin = libff::get_nsec_time();
-
-			// if (opcode == ADD_OPCODE) {
-			// 	FieldT sum;
-			// 	for (auto &v : inValues)
-			// 		sum += v;
-			// 	wireValues[outWires[0]] = sum;
-			// } else if (opcode == MUL_OPCODE) {
-			// 	wireValues[outWires[0]] = inValues[0] * inValues[1];
-			// } else if (opcode == XOR_OPCODE) {
-			// 	wireValues[outWires[0]] =
-			// 			(inValues[0] == inValues[1]) ? zeroElement : oneElement;
-			// } else if (opcode == OR_OPCODE) {
-			// 	wireValues[outWires[0]] =
-			// 			(inValues[0] == zeroElement
-			// 					&& inValues[1] == zeroElement) ?
-			// 					zeroElement : oneElement;
-			// } else if (opcode == NONZEROCHECK_OPCODE) {
-			// 	wireValues[outWires[1]] =
-			// 			(inValues[0] == zeroElement) ? zeroElement : oneElement;
-			// } else if (opcode == PACK_OPCODE) {
-			// 	FieldT sum, coeff;
-			// 	FieldT two = oneElement;
-			// 	for (auto &v : inValues) {
-			// 		sum += two * v;
-			// 		two += two;
-			// 	}
-			// 	wireValues[outWires[0]] = sum;
-			// } else if (opcode == SPLIT_OPCODE) {
-			// 	int size = outWires.size();
-			// 	FElem inVal = inValues[0];
-			// 	for (int i = 0; i < size; i++) {
-			// 		wireValues[outWires[i]] = inVal.getBit(i, R1P);
-			// 	}
-			// } else if (opcode == MULCONST_OPCODE) {
-			// 	wireValues[outWires[0]] = constant * inValues[0];
-			// }
-
-			//end =  libff::get_nsec_time();
-			//evalTime += (end - begin);
 		} else {
 			printf("Error: unrecognized line: %s\n", line.c_str());
 			assert(0);
@@ -394,9 +341,8 @@ void CircuitReader::mapValuesToProtoboard() {
 	}
 	if (!pb->isSatisfied(PrintOptions::DBG_PRINT_IF_NOT_SATISFIED)) {
 		printf("Note: Protoboard Not Satisfied .. \n");
-		// assert(false);
+		assert(false);
 	}
-	printf("Assignment of values done .. \n");
 	libff::leave_block("map values to protoboard");
 
 }
