@@ -75,10 +75,13 @@ SpartanR1CSMatrixs get_matrixs(vector<r1cs_constraint<FieldT>> constraints, int 
   };
 }
 
-pair<SpartanAssignment, SpartanAssignment> get_assignments(r1cs_variable_assignment<FieldT> full_assignment, size_t num_variables, size_t num_inputs) {
+pair<SpartanAssignment, SpartanAssignment> get_assignments(r1cs_variable_assignment<FieldT> full_assignment, size_t num_variables, size_t num_inputs, bool print_public_inputs) {
   auto input_assignment = new SpartanFieldElement[num_inputs];
   auto var_assignment = new SpartanFieldElement[num_variables];
   for (int assign_idx = 0; assign_idx < num_inputs; assign_idx++) {
+	if (print_public_inputs) {
+		full_assignment[assign_idx].as_bigint().print_hex();
+	}
     input_assignment[assign_idx] = field_t_to_spartan(full_assignment[assign_idx]);
   }
   for (int assign_idx = 0; assign_idx < num_variables; assign_idx++) {
@@ -130,7 +133,7 @@ extern "C"
 		cout << "check point 4" << endl;
 		size_t num_variables = full_assignment.size() - num_inputs;
 		cout << "check point 5" << endl;
-		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs);
+		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs, false);
 		cout << "check point 6" << endl;
 		auto matrixs = get_matrixs(cs.constraints, num_variables, num_inputs);
 		cout << "check point 7" << endl;
@@ -152,7 +155,7 @@ extern "C"
 		size_t num_variables = full_assignment.size() - num_inputs;
 		libff::leave_block("get nums");
 		libff::enter_block("get assignments");
-		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs);
+		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs, false);
 		libff::leave_block("get assignments");	
 		libff::enter_block("snark prove");
 		snark_prove(gens, inst, decomm, assign_pair.first, assign_pair.second, proof_path);
@@ -185,7 +188,7 @@ extern "C"
 		auto full_assignment = get_variable_assignment_from_gadgetlib2(*reader.pb);
 		size_t num_inputs = reader.getNumInputs() + reader.getNumOutputs();
 		size_t num_variables = full_assignment.size() - num_inputs;
-		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs);
+		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs, false);
 		auto matrixs = get_matrixs(cs.constraints, num_variables, num_inputs);
 		snark_generate(matrixs, assign_pair.first, assign_pair.second, cs.num_constraints(), "tmp_gens", "tmp_inst", "tmp_comm", "tmp_decomm");
 		SNARKGens* gens = snark_read_gens("tmp_gens");
@@ -204,17 +207,17 @@ extern "C"
 		auto full_assignment = get_variable_assignment_from_gadgetlib2(*(reader.pb));
 		size_t num_inputs = reader.getNumInputs() + reader.getNumOutputs();
 		size_t num_variables = full_assignment.size() - num_inputs;
-		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs);
+		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs, false);
 		auto matrixs = get_matrixs(cs.constraints, num_variables, num_inputs);
 		nizk_generate(matrixs, assign_pair.first, assign_pair.second, cs.num_constraints(), gens_path, inst_path);
 	}
 
-	pair<SpartanAssignment, SpartanAssignment>* pynizk_prove_preprocess(CircuitReader* reader, char* in_path) {
+	pair<SpartanAssignment, SpartanAssignment>* pynizk_prove_preprocess(CircuitReader* reader, char* in_path, bool print_public_inputs) {
 		reader->parseInputFile(in_path);
 		auto full_assignment = get_variable_assignment_from_gadgetlib2(*(reader->pb));
 		size_t num_inputs = reader->getNumInputs() + reader->getNumOutputs();
 		size_t num_variables = full_assignment.size() - num_inputs;
-		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs);
+		auto assign_pair = get_assignments(full_assignment, num_variables, num_inputs, print_public_inputs);
 		auto result = new pair<SpartanAssignment, SpartanAssignment>;
 		*result = assign_pair;
 		return result;
@@ -226,12 +229,27 @@ extern "C"
 	}
 
 	// used for benchmark in prover	
-	void pynizk_verify_benchmark(pair<SpartanAssignment, SpartanAssignment>* assign_pair, char* proof_path, NIZKGens* gens, Instance* inst) {
+	bool pynizk_verify_benchmark(char* public_inputs, char* proof_path, NIZKGens* gens, Instance* inst) {
+		gadgetlib2::initPublicParamsFromDefaultPp();
+		gadgetlib2::GadgetLibAdapter::resetVariableIndex();
+		std::istringstream inputstream(public_inputs, ifstream::in);
+		string line;
+		char* inputStr;
+		vector<FieldT> my_primary_input;
+		while (getline(inputstream, line)) {
+			Wire wireId;
+			inputStr = new char[line.size()];
+			sscanf(line.c_str(), "%u %s", &wireId, inputStr);
+			auto element = readFieldElementFromHex(inputStr);
+			element.as_bigint().print_hex();
+			my_primary_input.push_back(element);
+		}
 		cout << "will verify proof on " << proof_path << endl;
 		NIZK* proof = nizk_read_proof(proof_path);
 		cout << "read proof finish" << endl;
-		bool result = nizk_verify(gens, inst, proof, copy_assignment(assign_pair->second));
+		bool result = nizk_verify(gens, inst, proof, get_assignment(my_primary_input));
 		cout << "verify result " << result << endl;
+		return result;
 	}
 
 	// void pynizk_verify(NIZKGens* gens, Instance* inst, char* public_inputs) {

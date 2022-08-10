@@ -62,6 +62,11 @@ extern "C"
 		return pk;
 	}
 
+	void initialize() {
+		gadgetlib2::initPublicParamsFromDefaultPp();
+		gadgetlib2::GadgetLibAdapter::resetVariableIndex();	
+	}
+
 	r1cs_gg_ppzksnark_processed_verification_key<Dpp>* read_pvk(const char* pvk_path) {
 		// gadgetlib2::initPublicParamsFromDefaultPp();
 		// gadgetlib2::GadgetLibAdapter::resetVariableIndex();
